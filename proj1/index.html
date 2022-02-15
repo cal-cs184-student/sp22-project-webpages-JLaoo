@@ -34,7 +34,9 @@
 <div>
 
 <h2 align="middle">Overview</h2>
-<p>Give a high-level overview of what you implemented in this project. Think about what you've built as a whole. Share your thoughts on what interesting things you've learned from completing the project.</p>
+<p>In this project, I implemented rasterization for triangles as well as several sampling techniques. Implementing rasterization and these various sampling techniques primariliy consisted of reading the associated lecture slides, and then the translating concepts and mathematical equations from the lecture slides into C++ code. For many parts, such as the line tests for determining whether or not a point was inside a triangle, as well as the linear interpolation equations, it was quite simple to rewrite the equations from the slides as code. However, the more conceptual implementations, such as the creation of the bounded box and figuring out a way to store the supersampled data, required more thinking and creativity, and often required me to sketch out a few different ideas before implementation.</p>
+
+<p>Overall, I learned quite a bit about the effects of the various kinds of sampling on images of various frequencies. It was really interesting to see the algorithms that I had written myself remove aliasing from images, and it gave me a stronger intuition for the math and concepts behind anti-aliasing techniques. While I can't say that I learned anything new conceptually as I had already seen the material in lecture, the project gave me a deeper understanding of how sampling techniques worked in practice and taught me some minor details that I hadn't known before. For example, when doing my line tests, I previously didn't know that the order in which the points were listed mattered. However, at one point during the first task, I had only some of my triangles rasterized and realized that I needed to check for two cases in order to deal with points that were listed in a clockwise direction vs points that were listed in a counterclockwise direction.</p>
 
 <h2 align="middle">Section I: Rasterization</h2>
 
@@ -48,6 +50,8 @@
   <img src="images/task1_image1.png" align="middle" width="800px"/>
   <figcaption align="middle">The output of <em>basic/test4.svg</em>. Note the staircase pattern when zoomed in on the orange triangle.</figcaption>
 </div>
+
+<h4 align="middle">Part 1 Extra Credit</h4>
 
 <p> In order to optimize my algorithm, I tried a different triangle traversal algorithm. What I do is start at the highest point, fill in pixels to the left until I hit a pixel that doesn't need to be filled in, then go back to my starting point and fill in pixels to the right until I hit a pixel that doesn't need to be filled in. I then go to the leftmost x coordinate that was filled in and go down one y coordinate. I then traverse left and fill in pixels until I hit the outer edge and then go back to my starting point and traverse right. One edge case was that for really skinny triangles that have a high point and then two lower points way off to the left or right, it was possible that after going down one y coordinate, I would no longer be inside the triangle. In order to deal with this edge case, I would keep traversing left until I hit the edge of the bounded box or the triangle. If I hit the edge of the bounded box, I would terminate, then start traversing right. If I hit the edge of the triangle, I would keep filling in pixels until I hit the left edge, then terminate. A similar algorithm is applied for the rightwards traversal. With this algorithm, in the worst case scenario like in the case with the skinny triangle I described above where I traverse until I hit the edge of the bounded box, I end up traversing most of the bounded box anyways. However, for the scenarios where the triangle is wide and I always stay inside the triangle when moving my y coordinate down, I only need to traverse the insides of the triangle, thus cutting the runtime a decent amount. Below is a table comparing sample draw times between my two algorithms for the various tests.<p>
 
@@ -217,10 +221,7 @@
 
 <p> In the above images of a texture mapped New York City, I've zoomed in on the windows of a skyscraper in the far back left. We can see that with level 0 sampling and nearest pixel sampling, the image is quite blocky. However, if we use bilinear pixel sampling with level 0 level sampling, the image becomes a little bit smoother. When we change to using nearest level sampling with nearest pixel sampling, a lot of the dark spots go away, however there still some visible aliasing artifacts. Finally, when we combine nearest level sampling with bilinear pixel sampling, we get the smoothest result. </p>
 
-<h2 align="middle">Section III: Art Competition</h2>
-<p>If you are not participating in the optional art competition, don't worry about this section!</p>
-
-<h3 align="middle">Part 7: Draw something interesting!</h3>
+<h3 align="middle">Website URL: https://cal-cs184-student.github.io/sp22-project-webpages-JLaoo/proj1/index.html</h3>
 
 </body>
 </html>
