@@ -1,7 +1,364 @@
-<html>
-	<head>
-	</head>
-	<body>
-		Project 3-1 here
-	</body>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+  <style>
+    body {
+      padding: 100px;
+      width: 1000px;
+      margin: auto;
+      text-align: left;
+      font-weight: 300;
+      font-family: 'Open Sans', sans-serif;
+      color: #121212;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: 'Source Sans Pro', sans-serif;
+    }
+  </style>
+  <title>CS 184 PathTracer</title>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+  <h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2022</h1>
+  <h1 align="middle">Assignment 3: PathTracer</h1>
+  <h2 align="middle">Jonathan Luo</h2>
+  <h3 align="middle">Github Username: JLaoo</h3>
+  <h3 align="middle">Team Name: asdfasdf3</h3>
+
+  <br><br>
+
+  <div>
+
+    <h2 align="middle">Overview</h2>
+    <p>In this project, I learned about the various steps needed to render an image with realistic lighting. Implementing the various algorithms in the project mostly involved reading lecture slides and paying very close attention to the inputs that we were given and the functions that we had access to. Most bugs weren't conceptual misunderstandings, but very simple mistakes. For example, I had an issue where my BVH wasn't speeding up my render times by that much, and then I realized that I was actually iterating through every single primitive in my leaf nodes rather than only the primitives within that leaf node because I copy pasted the starter code instead of manually writing out the for loop. Debugging (especially during Part 4) was also quite tedious as some renders took around an hour so I would have to wait an hour just to find out my implementation was incorrect. A lot of the project involved trying to optimize performance and it was really interesting to see just how drastic the speedups were - it's a completely different thing to simply read numbers off a lecture slide than to actually sit there in pain while your computer renders an image for an hour, and then implement an optimization that causes the render to be done in less than a minute. Overall, a really fun project for me, but not for my computer's CPU.</p>
+
+    <h2 align="middle">Part 1: Ray Generation and Intersection</h2>
+
+    <p>For ray generation, the first thing I needed to do was transform a pair of normalized (x, y) coordinates to the 2D plane on the virtual camera sensor. My approach for this was to look at the coordinates of the origin, the bottom left corner, and the top right corner, and do my transformation such that those 3 points were properly transformed from the normalized image coordinate space to the virtual camera sensor space. I first subtracted 0.5 from both x and y so that the origin is now 0. I then scaled both x and y by 2. This created a coordinate system where the bottom left corner is (-1, -1), the origin is (0, 0), and the top right corner is (1, 1). I then finally multiplied (x, y) by (tan(hFov/2), tan(vFov/2)) to complete the transformation. Given that the three points we were tracking are now correctly mapped, then it's clear that our inputted (x, y) is also correctly mapped. I then created a 3D vector of (transformed_x, transformed_y, -1) for our coordinate in the camera space, and then multiplied it by the provided <em>c2w</em> matrix to translate the point back into world space. From here, it's straightforward to create the ray using the provided <em>pos</em> coordinate which is already in the world space.</p>
+
+    <p>For pixel sampling, I created a zeroed 3D vector to accumulate my results over <em>ns_aa</em> samples. For each iteration, I got a random sample from a unit square. Because the provided (x, y) coordinate is the bottom left of a pixel, adding the random to the provided (x, y) coordinate yields a random point within the pixel. I can then get the estimated radiance at that point, add it into my accumulator, and at the end average it to get my integral estimation.</p>
+
+    <p> For Ray-Triangle intersections, I used the Möller–Trumbore algorithm from the lecture slides to generate a vector with 3 elements: t, b1, and b2 where t is the "time" at which the ray intersects the triangle, and b1 and b2 are two of the barycentric coordinates for the triangle (b3 can be calculated with 1 - b1 - b2). The first thing we want to do is check that the t we have is smaller than or equal to <em>max_t</em> and greater than or equal to <em>min_t</em>. If it's outside of this range, then it's invisible to the camera so there's no point in wasting time rending it. The next thing we want to check is that b1, b2, and b3 are all greater than or equal to 0 and less than or equal to 1. If these conditions are satisfied, then it indicates that the ray intersection is within the triangle. We also want to set our <em>max_t</em> to the calculated t as there's no point in drawing anything behind it as it'll be invisible to the camera.</p>
+
+    <p> For Ray-Sphere intersections, I solved the quadratic equation as formulated in lecture for time(s) <em>t1</em> and <em>t2</em> where the ray intersected the sphere. If these values have an imaginary component, then the ray doesn't intersect the sphere. If the values are the same, then the ray just barely touches the sphere (indicating a "single" intersection). If both values are real and distinct, then there are 2 intersections, but we only care about the smaller t value as the closer intersection is the one that'll potentially be visible. Again we want to set <em>max_t</em> to the chosen <em>t</em> for a similar reason as the Ray-Triangle intersections.</p>
+
+    <p>Below we can see some images rendered with normal shading.</p>
+
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/banana.png" align="middle" width="400px"/>
+            <figcaption align="middle">A Banana</figcaption>
+          </td>
+          <td>
+            <img src="images/CBcoil.png" align="middle" width="400px"/>
+            <figcaption align="middle">A Coil in a Cornell Box</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/CBspheres.png" align="middle" width="400px"/>
+            <figcaption align="middle">Spheres in a Cornell Box</figcaption>
+          </td>
+          <td>
+            <img src="images/CBbunny.png" align="middle" width="400px"/>
+            <figcaption align="middle">A Bunny in a Cornell Box</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <h2 align="middle">Part 2: Bounding Volume Hierarchy</h2>
+
+    <p>I tried two different approaches for finding a splitting point. My first approach was to find the average x, y, and z coordinate of everything in the bounding box, then try 3 splits: one where everything in the left group had a smaller x value and everything in the right group had a larger x value, one where everything in the left group had a smaller y value and everything in the right group had a larger y value, and one where everything in the left group had a smaller z value and everything in the right group had a larger z value. I would then choose the axis that resulted in the most "balanced" split where both groups had the most similar number of primitives. However, when observing the various bounding boxes for this approach in the GUI, I realized that some splits resulted in really long bounding boxes with a few primitives on either end of the box with a lot of empty space in between. I realized that this probably wasn't a great splitting heuristic and went back to the drawing board. My second approach was to first find the longest axis of the bounding box. I then sorted the primitives within the bounding box based on their position along that axis, and then finally I just put everything in the first half in the left group and everything in the second half in the right group. This ended up being a much better heuristic as it achieved similar behavior to my previous heuristic (in the sense that it created balanced trees), but also solved the issue of having long boxes with a lot of empty space.</p>
+
+    <p>Thanks to BVH acceleration, we can now render complex images fairly quickly that would've taken much longer to render previously</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/CBlucy.png" align="middle" width="400px"/>
+            <figcaption align="middle">A Fancy Statue in a Cornell Box</figcaption>
+          </td>
+          <td>
+            <img src="images/CBdragon.png" align="middle" width="400px"/>
+            <figcaption align="middle">A Dragon in a Cornell Box</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/wall-e.png" align="middle" width="400px"/>
+            <figcaption align="middle">Wall-E</figcaption>
+          </td>
+          <td>
+            <img src="images/maxplanck.png" align="middle" width="400px"/>
+            <figcaption align="middle">Max Planck</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p>Below is a table showing some of the timing comparisons for image rendering before and after BVH acceleration.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <th style="text-align:center"><b>File Name</b></th>
+          <th style="text-align:center"><b>Without BVH Render Time</b></th>
+          <th style="text-align:center"><b>With BVH Render Time</b></th>
+        </tr>
+        <tr>
+          <td style="text-align:center">cow.dae</td>
+          <td style="text-align:center">17.7769s</td>
+          <td style="text-align:center">0.0338s</td>
+        </tr>
+        <tr>
+          <td style="text-align:center">CBcoil.dae</td>
+          <td style="text-align:center">52.5015s</td>
+          <td style="text-align:center">0.1641s</td>
+        </tr>
+        <tr>
+          <td style="text-align:center">CBbunny.dae</td>
+          <td style="text-align:center">438.4138s</td>
+          <td style="text-align:center">0.1966s</td>
+        </tr>
+        <tr>
+          <td style="text-align:center">peter.dae</td>
+          <td style="text-align:center">693.4763s</td>
+          <td style="text-align:center">0.2815s</td>
+        </tr>
+      </table>
+    </div>
+
+    <p>We can see that there are huge speedups for every single file, even a file that took over 10 minutes to render previously can now be rendered in under a second. If we calculate the amount of speedup for each file, we see that the more complex files (the files that took longer without BVH acceleration) had the greatest magnitude of speedup. This makes sense as for smaller files, the maximum leaf size is closer to the total number of primitives, so the speedup will be less than for large files where the maximum leaf size is further from the total number of primitives, thus reducing the amount of primitives tested more than for smaller files. For all images, each ray tends to average somewhere between 1-2 intersection tests, which is a great improvement from the hundreds to thousands of intersection tests previously required.</p>
+
+    <h2 align="middle">Part 3: Direct Illumination</h2>
+
+    <p>In order to implement <em>estimate_direct_lighting_hemisphere</em>, I needed to basically trace a ray from the camera until it bounced off an object, and then trace that bounce and see if it hit a light source. In the hemisphere version of direct illumination, after hitting an object, I randomly sample the hemisphere and choose a direction to shoot out the bouncing ray. To do this, I get a random object space vector from the hemisphere, calculate the <em>cosine_theta_j</em> value, and then use its world space counterpart to create a ray in the world space. I then use this new ray and check that it intersects an object. If it does, then we use that object's emission as <em>L_i</em> in the reflection equation. <em>f_r</em> in the reflection equation is simply 1 / pi for everything right now since we're working with diffuse materials that reflect light in all direction equally. The cosine term is derived from the dot product between the Z-axis and the hemisphere sample in object space. Finally, the PDF is simply 1 / 2*PI since everything in the hemisphere is equally likely. Putting all these together give us all the components we need to solve the reflection equation for a single sample. After taking all of our samples, we average the samples and return. The key thing to notice in this method is that when choosing a random ray that shoots out after the first bounce, that random ray won't necessarily point towards a light source. If it doesn't then the  L_i value will be 0 making the sample essentially worthless. This problem is addressed in the next method: importance sampling.</p>
+
+   <p>Importance sampling follows a similar idea in which we trace a ray from the camera to a certain point, then follow a bounce ray, but this time, we only sample the direction between the hit point and light sources rather than just randomly sampling directions from the hit point. However, just because a certain ray points towards a light source doesn't mean we will necessarily sample it. If there's an object in between the light source and the hit point, then we won't sample it as the light is blocked off from the hit point. A lot of the calculations are pretty much the same between this method and <em>estimate_direct_lighting_hemisphere</em>, but a lot of the values are generated by the <em>sample_L</em> function rather than manually generating a random direction, manually grabbing the emission, the PDF, etc. Another key point is that this new method allows us to sample point lights while previously, this would've been pretty much impossible since point lights are only at a single point and it would be difficult to perfectly randomly pick the direction of that point. When averaging our samples now, we need to weight our point light samples such that the weight of one point light sample is equivalent to the weight of the average of all samples from an area light. Importance sampling allows us to better estimate the total light in the scene with a smaller amount of samples as less of our samples are "useless".</p>
+
+   <p>Below we can see the difference between the two methods on rendering a bunny in a Cornell Box both using 64 camera rays per pixel, 32 samples per area light, and a maximum ray depth of 6. We can see that there's less noise in the image with importance sampling.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/CBbunny_H_64_32.png" align="middle" width="400px"/>
+            <figcaption align="middle">Render with Uniform Hemisphere Sampling</figcaption>
+          </td>
+          <td>
+            <img src="images/bunny_64_32.png" align="middle" width="400px"/>
+            <figcaption align="middle">Render with Importance Sampling of Lights</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p>Below we can see the difference in noise levels in soft shadows when rendering with various amounts of samples per area light. As we can see, as the number of samples goes up, the amount of noise goes down.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/bunny_1_1_8.png" align="middle" width="400px"/>
+            <figcaption align="middle">1 sample per area light</figcaption>
+          </td>
+          <td>
+            <img src="images/bunny_1_4_8.png" align="middle" width="400px"/>
+            <figcaption align="middle">4 samples per area light</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/bunny_1_16_8.png" align="middle" width="400px"/>
+            <figcaption align="middle">16 samples per area light</figcaption>
+          </td>
+          <td>
+            <img src="images/bunny_1_64_8.png" align="middle" width="400px"/>
+            <figcaption align="middle">64 samples per area light</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p>It's quite clear that importance sampling performs much better than uniform hemisphere sampling when using the same number of samples. This also means that importance sampling will be able to render an image of the same quality as uniform hemisphere sampling much faster. The amount of noise in uniform hemisphere sampling is very evident when using a small number of samples, while importance sampling performs decently even with a very small amount of samples. Additionally, importance sampling comes with the added benefit of being able to render scenes with point lights. As mentioned before, the probability of choosing a random ray that happens to hit a point light is extraordinarily miniscule, so being able to directly generate a ray to a point light without having to guess it is a huge benefit.</p>
+
+
+    <h2 align="middle">Part 4: Global Illumination</h2>
+
+    <p>To implement global illumination, the same idea behind one bounce raytracing in direct illumination applies, but this time rays can bounce more than once. To do this I recursively call at_least_one_bounce_radiance which in every recursion, calls one_bounce_radiance and we essentially aggregate the amount of light that's reflected at every single level. We're basically treating every ray intersection as a light source now rather than only the true light sources. In order to choose the direction of the new ray, we call <em>sample_f</em> which randomly samples an incoming ray direction. <em>sample_f</em> also usefully outputs the PDF of the sample probability which we later use as normalization in the reflection equation. At every single recursion level, if the recursion has reached the max ray depth, then it terminates, otherwise it has a 0.7 chance of continuing to recurse (the Russian Roulette method). We also obviously terminate recursion if the ray doesn't intersect with anything. One thing to note is that we will always trace at least one indirect ray if the max ray depth > 1 (ie the first recursion isn't subject to Russian Roulette).</p>
+
+    <p>Below are some examples of scenes rendered with global illumination with 1024 samples per pixel:</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/bunny_1024.png" align="middle" width="400px"/>
+            <figcaption align="middle">A Bunny in a Cornell Box</figcaption>
+          </td>
+          <td>
+            <img src="images/spheres_1024.png" align="middle" width="400px"/>
+            <figcaption align="middle">Spheres in a Cornell Box</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/walle_1024.png" align="middle" width="400px"/>
+            <figcaption align="middle">Wall-E</figcaption>
+          </td>
+          <td>
+            <img src="images/dragon_1024.png" align="middle" width="400px"/>
+            <figcaption align="middle">A Dragon</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p> Below we see the spheres in a Cornell box rendered with only direct illumination and then with only indirect illumination: </p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/spheres_only_direct.png" align="middle" width="400px"/>
+            <figcaption align="middle">Only Direct Illumination</figcaption>
+          </td>
+          <td>
+            <img src="images/spheres_only_indirect.png" align="middle" width="400px"/>
+            <figcaption align="middle">Only Indirect Illumination</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p> Below are images of CBbunny with various max ray depths using 1024 samples per pixel: </p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/bunny_d0.png" align="middle" width="400px"/>
+            <figcaption align="middle">Max Ray Depth = 0</figcaption>
+          </td>
+          <td>
+            <img src="images/bunny_d1.png" align="middle" width="400px"/>
+            <figcaption align="middle">Max Ray Depth = 1</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/bunny_d2.png" align="middle" width="400px"/>
+            <figcaption align="middle">Max Ray Depth = 2</figcaption>
+          </td>
+          <td>
+            <img src="images/bunny_d3.png" align="middle" width="400px"/>
+            <figcaption align="middle">Max Ray Depth = 3</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/bunny_d4.png" align="middle" width="400px"/>
+            <figcaption align="middle">Max Ray Depth = 4</figcaption>
+          </td>
+          <td>
+            <img src="images/bunny_d100.png" align="middle" width="400px"/>
+            <figcaption align="middle">Max Ray Depth = 100</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p> Below are images of the spheres in a Cornell box with various sample-per-pixel rates each with 4 light rays: </p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/spheres_s1.png" align="middle" width="400px"/>
+            <figcaption align="middle">Samples per pixel = 1</figcaption>
+          </td>
+          <td>
+            <img src="images/spheres_s2.png" align="middle" width="400px"/>
+            <figcaption align="middle">Samples per pixel = 2</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/spheres_s4.png" align="middle" width="400px"/>
+            <figcaption align="middle">Samples per pixel = 4</figcaption>
+          </td>
+          <td>
+            <img src="images/spheres_s8.png" align="middle" width="400px"/>
+            <figcaption align="middle">Samples per pixel = 8</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/spheres_s16.png" align="middle" width="400px"/>
+            <figcaption align="middle">Samples per pixel = 16</figcaption>
+          </td>
+          <td>
+            <img src="images/spheres_s64.png" align="middle" width="400px"/>
+            <figcaption align="middle">Samples per pixel = 64</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/spheres_s1024.png" align="middle" width="400px"/>
+            <figcaption align="middle">Samples per pixel = 1024</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <h2 align="middle">Part 5: Adaptive Sampling</h2>
+
+    <p>Adaptive sampling was fairly simple to implement. I just kept track of the s_1 and s_2 values as mentioned in the spec and then whenever the current index mod samplesPerBatch = 0, I calculate the mean and standard deviation to calculate the I value and determine whether or not to terminate. I also needed to change the value that was being stored in the sampleCountBuffer from always being the total number of samples to being the actual number of samples that were taken (as we can now terminate early).</p>
+
+    <p>Below is a render of the bunny in a Cornell box along with its sampling rate. It was rendered using 2048 samples per pixel, 1 sample per light and a max ray depth of 5.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/bunny_adaptive.png" align="middle" width="400px"/>
+            <figcaption align="middle">Render of the Bunny</figcaption>
+          </td>
+          <td>
+            <img src="images/bunny_adaptive_rate.png" align="middle" width="400px"/>
+            <figcaption align="middle">Sampling Rate of the Render</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <h3 align="middle">Website URL: https://cal-cs184-student.github.io/sp22-project-webpages-JLaoo/proj3/index.html</h3>
+
+
+
+</body>
+
 </html>
