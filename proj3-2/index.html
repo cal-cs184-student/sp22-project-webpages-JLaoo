@@ -1,7 +1,188 @@
-<html>
-	<head>
-	</head>
-	<body>
-		Project 3-2 here
-	</body>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+  <style>
+    body {
+      padding: 100px;
+      width: 1000px;
+      margin: auto;
+      text-align: left;
+      font-weight: 300;
+      font-family: 'Open Sans', sans-serif;
+      color: #121212;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: 'Source Sans Pro', sans-serif;
+    }
+  </style>
+  <title>CS 184 PathTracer</title>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+  <h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2022</h1>
+  <h1 align="middle">Assignment 3 Part 2: PathTracer</h1>
+  <h2 align="middle">Jonathan Luo</h2>
+  <h3 align="middle">Github Username: JLaoo</h3>
+  <h3 align="middle">Team Name: asdfasdf4</h3>
+
+  <br><br>
+
+  <div>
+
+    <h2 align="middle">Overview</h2>
+    <p>In this project I chose to work on parts 2 and 4 where I explored microfacet materials and depth of field. It was pretty interesting seeing how simply changing some numbers could affect the "glossiness" of the rendered object as well as playing around with the various eta and k values to make objects appear like they're made of different materials. In depth of field, it was pretty cool to see how the math was applied to create various ranges of focused images. This project consisted mostly of translating mathematical/geometric concepts and equations into code, so it wasn't as code intensive as some previous projects, and debugging mostly consisted of making sure that the code I wrote was accurately translating the concept I was attempting to translate.</p>
+
+    <h2 align="middle">Part 2: Microfacet Material</h2>
+
+    <p>Implementing this part mostly involved just converting the formulas provided in the spec and lecture slides into code so it wasn't too difficult. The most difficult part was in task 4 during importance sampling where I needed to determine h and wi. I managed to determine h by going to the Wikipedia page for the Spherical Coordinate System and finding the transformation from the spherical coordinate system to the cartesian coordinate system. I was able to figure out wi from a Piazza post which detailed how to derive the reflection vector. Debugging mostly consisted of just making sure that all of the math was properly translated into code.</p>
+
+    <p>Shown below are images of <em>CBdragon_microfacet_au.dae</em> with various levels of alpha. All images have 128 samples per pixel, 1 sample per light, and number of bounces set to 5.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/microfacet_dragon_005.png" align="middle" width="400px"/>
+            <figcaption align="middle">alpha = 0.005</figcaption>
+          </td>
+          <td>
+            <img src="images/microfacet_dragon_05.png" align="middle" width="400px"/>
+            <figcaption align="middle">alpha = 0.05</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/microfacet_dragon_25.png" align="middle" width="400px"/>
+            <figcaption align="middle">alpha = 0.25</figcaption>
+          </td>
+          <td>
+            <img src="images/microfacet_dragon_5.png" align="middle" width="400px"/>
+            <figcaption align="middle">alpha = 0.5</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p>Seeing as alpha represents the roughness of the macro surface, we can see that when alpha is small, the dragon appears much more "glossy" and smooth, but as alpha grows larger, the macro surface becomes less glossy and the light tends to diffuse more.</p>
+
+    <p>Below are images of <em>CBbunny_microfacet_cu.dae</em> rendered using the default cosine hemisphere sampling as well as rendered using the implemented importance sampling. They're both rendered using 64 samples per pixel, 1 sample per light, and number of bounces set to 5.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/microfacet_bunny_default.png" align="middle" width="400px"/>
+            <figcaption align="middle">Cosine Hemisphere Sampling</figcaption>
+          </td>
+          <td>
+            <img src="images/microfacet_bunny_importance.png" align="middle" width="400px"/>
+            <figcaption align="middle">Importance Sampling</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p>We can see that there's much less noise in the image rendered with importance sampling. This makes sense since in importance sampling, we sample the integrand according to how much we expect it to contribute to the integral, therefore we take more samples from the areas of interest, thus leading to less noise since we aren't "wasting" samples on points that don't contribute much.</p>
+
+    <p>Below is an image of <em>CBbunny_microfacet_cu.dae</em>, but this time using a conductor material of Zinc. This leads to eta being set to (1.1181, 0.92678, 0.71515) and k being set to (5.5577, 4.9657, 4.1696). The bunny rendered with its default material of copper is shown beside.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/microfacet_bunny_cu.png" align="middle" width="400px"/>
+            <figcaption align="middle">Default Conductor Material</figcaption>
+          </td>
+          <td>
+            <img src="images/microfacet_bunny_zinc.png" align="middle" width="400px"/>
+            <figcaption align="middle">New Conductor Material</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <h2 align="middle">Part 4: Depth of Field</h2>
+
+    <p>In order to generate rays for a thin lens, I first used my code from Project 3-1 to determine the generated ray direction from the current pixel to the point in focus. I then randomly sampled a point on the lens (pLens) using the provided formula. The point in focus (pFocus) can then be determined simply by scaling the generated ray direction from the current pixel to the point in focus by the focal distance. This is because we know that the length of the generated ray in the z-axis is -1. Therefore, by scaling it by the focal distance, the z value becomes -(focal distance) which is exactly on the plane of focus, therefore giving us the desired point of focus. The ray that originates from pLens towards pFocus can be generated simply by subtracting pLens from pFocus. This ray is then normalized and then transformed to the world space to be used as the direction of the ray being generated for the thin lens. The origin of the ray is the point on the lens transformed into world space plus pos.</p>
+
+    <p>The pinhole camera model is the same as the thin-lens camera model, except that the aperture is infinitesimally small. This makes it such that light is only allowed to shine on the view plane through a single point (and therefore only from a single direction from any light source, so there's no blur. A thin lens model uses a lens to focus light onto the view plane, but because a lens can only focus on light coming from a fixed distance away, it's possible for the image to be blurry. However, because more light is being let in, images using thin lens tend to be brighter.</p>
+
+    <p>Below are images of a dragon rendered using various focal distances. All were rendered using 128 samples per pixel, 4 samples per light, number of bounces per pixel set to 12, and using a lens radius of 0.1.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/depth_of_field2.png" align="middle" width="400px"/>
+            <figcaption align="middle">Focal Distance = 2</figcaption>
+          </td>
+          <td>
+            <img src="images/depth_of_field3.png" align="middle" width="400px"/>
+            <figcaption align="middle">Focal Distance = 3</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/depth_of_field4.png" align="middle" width="400px"/>
+            <figcaption align="middle">Focal Distance = 4</figcaption>
+          </td>
+          <td>
+            <img src="images/depth_of_field5.png" align="middle" width="400px"/>
+            <figcaption align="middle">Focal Distance = 5</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p>We can see that as the focal distance increases, the dragon comes more into focus and is fairly in focus at a distance of 5. This is due to the dragon being located at a distance of around 5 from the camera, therefore leading to the smaller focal distances being blurry.</p>
+
+    <p>Below are images of the same dragon rendered using various aperture sizes. All were rendered using 128 samples per pixel, 4 samples per light, number of bounces per pixel set to 12, and using a focal distance of 5.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="images/aperture001.png" align="middle" width="400px"/>
+            <figcaption align="middle">Aperture Size = 0.01</figcaption>
+          </td>
+          <td>
+            <img src="images/aperture01.png" align="middle" width="400px"/>
+            <figcaption align="middle">Aperture Size = 0.1</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="images/aperture05.png" align="middle" width="400px"/>
+            <figcaption align="middle">Aperture Size = 0.5</figcaption>
+          </td>
+          <td>
+            <img src="images/aperture1.png" align="middle" width="400px"/>
+            <figcaption align="middle">Aperture Size = 1</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p>We can see that aperture size grows, the image becomes more blurry as we're focusing more sources of light onto a single point.</p>
+
+
+
+    <h3 align="middle">Website URL: https://cal-cs184-student.github.io/sp22-project-webpages-JLaoo/proj3-2/index.html</h3>
+
+
+
+</body>
+
 </html>
