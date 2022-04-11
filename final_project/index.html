@@ -1,0 +1,69 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>
+  body {
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Open Sans', sans-serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+</style>
+<title>CS 184 Final Project Proposal</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">Extending CPU Cloth Simulation Using GPU Shaders</h1>
+<h2 align="middle">Team Members: Jonathan Luo, Jacob Hsiung, William Chen, Zoltan Williamson</h2>
+<br><br>
+
+<div>
+
+<h2 align="middle">Summary</h2>
+<p>In this project, we hope to use a more powerful shader API in order to speed up rendering times for a cloth simulation and/or other simulations. Along with these improved rendering times, we could also implement additional features such as more accurate self collision.</p>
+
+<h2 align="middle">Project Description</h2>
+
+
+<p> In project 4, we implemented our shader in GLSL, but we could implement the shader in OpenGL or another powerful shader library to attain faster rendering times, which would allow us to implement new features without needing to sacrifice framerate. This is an important issue to solve as rendering times are a major bottleneck when running real time simulations. By reducing rendering time, we will not only be able to increase framerate, but also have the chance to implement more advanced features without sacrificing too much framerate. We believe one of the main challenges of this project is learning how to incorporate OpenGL properly, as it is an API that we are not familiar with. If we decide to implement more advanced physics, it will also be a challenge to translate that physics into code. <p>
+
+<h2 align="middle">Goals and Deliverables</h2>
+
+<p> In this project, we’ll attempt to speedup the rendering times of ClothSim from project 4 by utilizing the GPU via the OpenGL API. In order to demonstrate our implementation, we plan on running simulations at a high speed at a frame rate that the current project 4 implementation would be unable to match. We also plan on including tables/graphs of rendering times and/or framerates to serve as metrics to determine the speedup we’re able to obtain. Through this analysis, we hope to answer the question of exactly how much of a speedup OpenGL provides in ClothSim and perhaps other various simulations.<p>
+
+<p> <b>Plan to deliver:</b> A sped up version of ClothSim utilizing the OpenGL API along with sped up simple simulations (such as the ones currently in project 4). Graphs and/or tables of metrics such as framerates and rendering times will also be included. We plan on adding on to the current project 4 implementation. In the event that we deem it infeasible to work with the existing project 4 codebase (ie it may be too difficult to transform the current codebase into one that can work with OpenGL), we plan on writing a cloth simulation application from scratch and comparing our new implementation’s metrics with the metrics from project 4.</p>
+
+<p> <b>Hope to deliver:</b> If we have time, we would like to also create more complicated simulations and compare metrics. We would also like to implement new features such as additional textures, materials, or more accurate physics (eg self collision) if we have time.</p>
+
+<h2 align="middle">Schedule</h2>
+
+<ul>
+  <li>Week 1: Determine whether project 4 codebase can be used for incorporating OpenGL for GPU speedup. Read up on OpenGL tutorials/APIs to get a better understanding of how the API works. Play around with the OpenGL library.</li>
+  <li>Week 2: Start incorporating OpenGL into old codebase, or start from scratch with OpenGL (depending on our research from week 1), start adding additional animations to demonstrate speedup.</li>
+  <li>Week 3: Finish working on OpenGL incorporation. If have time, add new features now possible due to speedup.</li>
+  <li>Week 4: Finish up any coding tasks, final debugging/testing, presentation preparation (slides, generating final simulations/graphs/tables, etc.)</li>
+</ul>
+
+<h2 align="middle">Resources</h2>
+
+<ul>
+  <li>https://www.shadertoy.com/view/MldXWX</li>
+  <li>https://github.com/bailus/Cloth</li>
+  <li>https://graphics.stanford.edu/courses/cs468-02-winter/Papers/Collisions_vetements.pdf</li>
+  <li>http://www.cse.iitm.ac.in/~vplab/courses/CG/PDF/ab/TPA20.pdf</li>
+</ul>
+
+<p>We plan on starting from the Project 4 codebase and integrating OpenGL APIs. If we choose to start from scratch, we’ll still use C++. Computing and rendering will be done on local machines as well as the SSH school machines.</p>
+
+</body>
+</html>
