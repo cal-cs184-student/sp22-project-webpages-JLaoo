@@ -1,0 +1,59 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>
+  body {
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Open Sans', sans-serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+</style>
+<title>CS 184 Final Project Milestone</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">Extending CPU Cloth Simulation Using GPU Shaders</h1>
+<h2 align="middle">Team Members: Jonathan Luo, Jacob Hsiung, William Chen, Zoltan Williamson</h2>
+<br><br>
+
+<div>
+
+<h2 align="middle">Exploration</h2>
+<p>Over the past few weeks, we've been exploring various methods of trying to speed up the current Project 4: ClothSim code by offloading some of the computations that are currently being done sequentially on the CPU onto the GPU. After some deep diving into the existing ClothSim code, we determined that we would use OpenGL's GLSL shaders since they were already supported by the ClothSim project. As we continued our research, one approach we considered was offloading all of our computation into the fragment shaders and forgo vertex shaders entirely - similar to the projects on <a href="https://www.shadertoy.com/">Shadertoy</a>. This was certainly a viable option and we spent a lot of time doing GLSL and Shadertoy tutorials. However, as further explored Shadertoy, we realized that because Shadertoy doesn't support vertex shaders, we would need to essentially rebuild the entirety of ClothSim from the ground up, but in GLSL. We determined it infeasible to rebuild the entirety of ClothSim and considered simpler simulations (eg simulations without all of the user inputs allowed by ClothSim), but decided to explore some other approaches before commiting to this approach.</p>
+
+<p>The next approach we considered involved GLSL's compute shaders. Compute Shaders don't actually render anything on the screen, but are instead used to run operations on the GPU, which was extremely desirable for us given our goal of parallelizing our computations. After a lot of research, debugging, and trying various approaches with utilizing compute shaders, we were able to parallelize the grid creation component of ClothSim. While there aren't any complex calculations in grid creation and it doesn't benefit too much from parallelization since it's only run when a cloth is initialized, it served as an excellent proof of concept to show that our approach was viable and the final rendering from the calculated by the compute shaders was identical to the final rendering from the original implementation of ClothSim.</p>
+
+<h2 align="middle">Approach Overview</h2>
+
+
+<p>As mentioned in our overview, we'll take advantage of GLSL's compute shaders to offload computation that's currently being looped over and run sequentially (eg computing total force on each point mass) and instead run it in GLSL such that's run on the GPU rather than the CPU. At a very high level, there are three steps to this approach: 1) create a buffer and initialize this buffer with any information that we want to pass into the compute shader 2) dispatch the compute shaders and wait for them to finish 3) Read the computed data out of the buffer and feed it back into the proper data structures. This should integrate very cleanly into the current ClothSim code since we'll manually format the input and outputs such that the compute shader can make use of the input, and the current ClothSim logic can comprehend the output.<p>
+
+<h2 align="middle">Work Plan Updates</h2>
+
+<p>In our our original plan, we planned on spending the first week doing research, the second and third weeks working on implementation, and the fourth week adding any additional features and polishing our presentation. We spent more time than expected on research since we spent a lot of time on our Shadertoy approach which we eventually ended up scrapping (and learning and debugging compute shaders was no easy task either), however we believe that we should still be able parallelize a decent amount (if not all) of the computations currently being done in ClothSim. We may have to adjust our week 4 plan to focus more on fine tuning and optimizing our parallelizing rather than adding additional features depending on the results of our optimization.<p>
+
+<h2 align="middle">Goal Updates</h2>
+
+<p>Our original goal is largely still the same, which is to speed up ClothSim via the parallelization and provide metrics of the speedup. However, our focus has somewhat shifted away from "achieving a speedup" and more towards "offloading the workload from the CPU to the GPU". In our very preliminary testing, we discovered that the amount of time it took to build the grid using our parallelized implementation was double the amount of time it took to simply run it on the CPU using the original implementation. Of course, the overhead from parallelization is something that we can work on fine tuning, but it's still unsure whether we will be able to actually achieve a speedup in the end. Of course, if our sole goal was a speedup, the easiest way would be to just add some #pragma omps to our loops and call it a day, but this doesn't serve as a very educational or interesting project. Actually working with compute shaders and the GPU and deep diving into graphics programming no matter the speedup is instead a much more interesting project. If we fail to get the shaders to work properly, our fallback will be working with OpenMP. So while our final deliverables will largely be the same, we'll consider our project a success if it renders the same results as the original ClothSim no matter the speedup.</p>
+
+<h2 align="middle">Resource Updates</h2>
+
+<p>We originally stated that we would do our computing and rendering on the school machines as well as our local machines. However, it turns out that compute shaders weren't added to OpenGL until V4.3. MacOS has deprecated support for OpenGL since version 4.1, thus making machines running MacOS unable to run our project. As a result, we'll need to specify that the machine being used to run the project must be able to support OpenGL 4.3+. Furthermore, we realized that different machines will have wildly different performances depending on their hardware specs. As a result, for the sake of consistency, we'll be running all our tests on our local machines, and specify our hardware specs in our results.</p>
+
+
+<h3 align="middle"><a href="https://docs.google.com/presentation/d/1WPQclpdnJr5B1PVE5wiqagQidlo7U3P94RAvt2f1kUY/edit?usp=sharing">Slides</a></h2>
+<h3 align="middle"><a href="https://www.youtube.com/watch?v=pykNP6Bfs70">Video</a></h2>
+
+</body>
+</html>
