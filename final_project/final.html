@@ -1,0 +1,183 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>
+  body {
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Open Sans', sans-serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+</style>
+<title>CS 184 Final Project Final Deliverable</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">Offloading ClothSim Simulation to the GPU</h1>
+<h2 align="middle">Team Members: Jonathan Luo, Jacob Hsiung, William Chen, Zoltan Williamson</h2>
+<br><br>
+
+<h3 align="middle"><a href="https://docs.google.com/presentation/d/1BPa3G2CJMqADr_4fVkVG_eO9-AY7RKfE4iOtNA9PeOE/edit?usp=sharing">Final Presentation Slides</a></h2>
+
+
+<div>
+
+<h2 align="middle">Abstract</h2>
+<p>For this project, we offloaded the entirety of Assignment 4: ClothSim’s simulation loop from the CPU to the GPU using OpenGL. This involved rewriting most of our simulation code to instead send data from the CPU to the GPU, where it could then compute data using shader code we also wrote. With this offloading, we ended up with significant speedup in average rendering time, as long as spatial hashing is not utilized.</p>
+
+<div align="center"><iframe src="https://drive.google.com/file/d/19FvBBSasrZ8ign3AmiibHtUwgNAtVbf8/preview" width="640" height="480" allow="autoplay"></iframe></div>
+
+<h2 align="middle">Technical Approach</h2>
+
+<p>The bulk of this project mainly involved working with compute shaders to parallelize calculations that we were currently doing sequentially. At a very high level, the steps involved generating the required buffer to hold input/output data, filling in the buffer with the data we need for computation, passing that buffer to the compute shader, running the compute shader, and finally retrieving the buffer and extracting the results. The reason we need to create buffers is that compute shaders are unable to take in user inputs and provide outputs the way normal shaders are able to. As a result, we need to do a somewhat roundabout approach of utilizing shared storage that all shaders are able to access and then working with the buffer rather than directly inputting/outputting to and from the shader. In this project we explored two methods of shared storage: using 2D textures and using Shader Storage Buffer Objects (SSBOs). We ended up using both approaches in our final simulation since different group members were more comfortable working with different approaches, and the end results were similar.</p>
+
+<p>The first approach we explored was using 2D textures as shared storage. The main advantage of using 2D textures over Shader Storage Buffer Objects is that they’re simpler to work with provided that one is familiar with how textures work, relatively lightweight compared to SSBOs resulting in slightly faster render times compared to SSBOs, and 2D textures can be rendered for debugging purposes. The main drawback of using 2D textures compared to SSBOs is that it’s more difficult to manipulate inputs and outputs to the compute shader since you aren’t able to create data structures to hold your inputs and outputs like with SSBOs.<p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/ssbo_verlet.png" align="middle" width="500px"/>
+        <figcaption align="middle">Parallellized Verlet Integration using SSBOs</figcaption>
+      </td>
+      <td>
+        <img src="images/textures_verlet.png" align="middle" width="500px"/>
+        <figcaption align="middle">Parallellized Verlet Integration using Textures</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<p>As we can see from the above graphs showing rendering time over 100 simulation steps when parallelizing only Verlet integration, using textures as storage results in slightly faster render times with textures averaging around 6600 microseconds per step and SSBOs averaging around 7000 microseconds per step.<p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/debug_falling.png" align="middle" width="500px"/>
+        <figcaption align="middle">Debug Square with Falling Cloth</figcaption>
+      </td>
+      <td>
+        <img src="images/debug_rest.png" align="middle" width="500px"/>
+        <figcaption align="middle">Debug Square with Cloth at Rest</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<p>To demonstrate the use of 2D textures in debugging, above is a rendered square in the background of a simulation using the 2D texture storing next point mass positions in Verlet integration. Each pixel consists of RGBA values with R being the x coordinate, G being the y coordinate, B being the z coordinate, and A being 0. As we can see, when the cloth is falling, the debug square goes from red to green since the z coordinates of the cloth range from high to low. When the cloth is at rest on the plane and all the Z coordinates are almost the same, the debug square turns entirely red indicating that the Z coordinates are mostly uniform. This debug square is quite useful to serve as a sanity check to make sure that the calculations are being outputted correctly.</p>
+
+<p>Going into more detail on the implementation utilizing textures, the first step is to determine what variables change every iteration and need to be stored in the buffer. These are in general point mass positions, forces, last positions, etc. Other variables that stay constant, such as the spring constant and mass can be hard coded into the shader code. Once that’s determined, textures with pixels equaling the number of iterations are generated. For example, if we’re iterating over all springs, then a texture with springs.size() pixels is created. Because each texture can only hold 4 values (RGBA), sometimes, multiple textures are needed to store all the values needed. For example, if a calculation requires both point mass position and point mass last position, then at least 2 textures will be needed to hold the 6 coordinates. We then need to populate our buffer(s). Each texture is associated with a buffer of size (# of pixels) * 4 with each sequential 4 indices representing one pixel’s RGBA values. This can be done by iterating through the original data structures (e.g. springs or point masses), extracting the data, and populating the buffer. After all buffers are populated, the buffers need to be bound to the textures. Finally, the shader code needs to be written. Because GLSL is a C-like language, the logic is very similar, however, we need to first format the inputs into usable data structures. Each compute shader has access to something called a GlobalInvocationID which essentially represents the index of the pixel it’s working on. Using this ID, we can individually load the current pixel’s RGBA values from each texture and reconstruct the needed data structures (i.e. loading 3 individual coordinates and concatenating them into a vec3). We can then store the output back into one of the input textures (or a separate output texture if we need the inputs to stay unchanged since the computation involves iterating over all inputs). Our shader code is written as a raw string in the C++ file since this allows us to use string concatenation to hardcode runtime variables. This string is then compiled and bound to a program. Each texture is then bound to the program, and the program is run, blocking until all workloads have completed. We can then finally read the texture where we stored our data into a buffer, then using a similar method to before, reinsert this data into the original data structures.</p>
+
+<p>Another method to store data on a graphics card is the Shader Storage Buffer Object. The main difference between SSBOs and texture buffers is that we can initialize SSBOs to any size depending on our usage. Also, one can pass in any data structure created by the users into the buffer. This enables lots of flexibility when we are getting data in and out of the GPU. The first step is to generate a buffer and bind it to a target. Then, a buffer with elements equal to the number of mass points is generated, and each element is of type glm::dvec4 containing either the positions, forces, or other variables. Theoretically, we can initialize just 1 buffer containing all the data we need, including positions, last positions, forces, spring constants, and etc. However, as mentioned in the last paragraph, the only accessible variable in the compute shader is GlobalInvocationID. If all the data were to be stored in a single buffer, it would have been incredibly hard to index through the buffer. Hence, multiple buffers are created and populated with positions, forces, pinned, and other parameters respectively. Notice that we initialize each element in the buffer to be glm::dvec 4 even though the data are all stored in the form of a 3D vector. The reason is related to the structure of the memory on the GPU. Initially, we stored data into the buffer in the form of glm::dvec3, but the data exhibits random behavior every 4 fields as we were loading back the data after the compute shader compiled. Apparently, the memory on the GPU is designed in a way to contain 4 fields for RGBA values. Even if we set up the buffer to be of type glm::devc3, the empty field still creates random behavior in our calculations. After setting up the buffers, we call glBufferBase on each buffer to bind them to specific binding points on the GPU. This way, these buffers are accessible within the compute shader in a C-style manner through these binding points. In the compute shader, we use GlobalInvocationID to load the data from the buffer and store it back after certain calculations. Last but not least, we have to copy the data back from the GPU to CPU, and this can be done with glMapBufferRange, which returns a pointer to the buffer object. The last step is to iterate over the buffer using the pointer to load the data.</p>
+
+<p>Our implementations differed from the references we used in the sense that we needed to adapt our project to use pre-existing inputs and have our outputs be of a certain format. For example, the reference we used that went over using textures as a storage method simply used compute shaders to increment some numbers. It was a huge leap from incrementing numbers to inputting actual point mass or spring parameters, performing physics calculations, and then extracting the output in a usable format. Additionally, many of our references didn't go over good practices for buffer management, so we needed to experiment and figure out the more optimal ways of creating and deleting buffers such that we didn't have memory leaks or performance issues.</p>
+
+<p>There were several challenges that we ran into when working on this project. The first was even deciding to use compute shaders in the first place. Because compute shaders were introduced fairly recently in GLSL 4.3, we didn’t find out about them until a bit later and were originally planning on trying to recreate the entirety of ClothSim using only fragment shaders on a website such as ShaderToy. Even after deciding on using compute shaders, resources on compute shaders were fairly limited and we needed to do a lot of research and experimentation to get a working result. Another challenge we faced was dealing with memory leaks which were slowing down our code and sometimes causing segfaults. A lot of the code examples we found online didn’t mention deleting buffers and textures and it took some time for us to figure out that buffers and textures weren’t automatically deleted upon dereference, so we needed to make sure to manually call the OpenGL API to delete unused buffers and textures after we were finished with them. One of the biggest challenges was manipulating the original data structures and modifying the starter code to feed the required data into the compute shaders in such a way that the computations would be identical to the ones in the original ClothSim code. This required a lot of creativity and some clever tricks (e.g. using string concatenation to hard code constant variables, modifying the CollisionObjects API to return plane and sphere parameters and setting flags to distinguish between planes and spheres, etc.).</p>
+
+<p>Overall we learned several things from this project. First of all, we learned how to use compute shaders in OpenGL from scratch which was a very difficult and involved process. Pipelining in OpenGL was a fairly complicated process due to how we needed to manipulate our inputs and outputs, and the process of working with asynchronous code is very different than working with synchronous code. We also learned about just how powerful the GPU's parallelization power is, although with the caveat that the computation has to be large enough to overcome the overhead required to setup the parallelism. We definitely came away with a newfound appreciation and respect for programmers that utilize GPU programming to create high definition games, visual programs, and more.</p>
+
+<h2 align="middle">Results</h2>
+
+<p>In order to have a bit more accurate self collisions, one thing we tried was removing spatial hashing. When not using spatial hashing, our implementation performed quite a bit faster than the original implementation.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <iframe src="https://drive.google.com/file/d/134zJ_yyzp6S2x8df69Hz6ioCErt7KK3_/preview" width="500" height="375" allow="autoplay"></iframe>
+        <figcaption align="middle">Cloth Colliding with Sphere Using GPU Offloaded Implementation</figcaption>
+      </td>
+      <td>
+        <iframe src="https://drive.google.com/file/d/1RB1c8JwBScri6-d27RYk0iFN7KtTWqBJ/preview" width="500" height="375" allow="autoplay"></iframe>
+        <figcaption align="middle">Cloth Colliding with Sphere Using Original Implementation</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <iframe src="https://drive.google.com/file/d/1GFvJJYlue2g7pbgKwGdcFyIKZVztWCKq/preview" width="500" height="375" allow="autoplay"></iframe>
+        <figcaption align="middle">Cloth Colliding with Plane Using GPU Offloaded Implementation</figcaption>
+      </td>
+      <td>
+        <iframe src="https://drive.google.com/file/d/1rwyoqkLkeTk7L1brrlZjMihKxVPvTJzN/preview" width="500" height="375" allow="autoplay"></iframe>
+        <figcaption align="middle">Cloth Colliding with Plane Using Original Implementation</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<p>In the above demos, we can see the GPU accelerated implementation side by side with the original implementation. Both of these demos were run on a laptop with a fairly poor GPU, so both videos are sped up 8x. As we can see, our GPU accelerated implementation is quite a bit faster than the original implementation.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/gpu_all.png" align="middle" width="500px"/>
+        <figcaption align="middle">Average Rendering Time per Step Using GPU Offloaded Implementation Without Spatial Hashing</figcaption>
+      </td>
+      <td>
+        <img src="images/cpu_all.png" align="middle" width="500px"/>
+        <figcaption align="middle">Average Rendering Time per Step Using Original Implementation Without Spatial Hashing</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<p>As we can see from the above graphs, without spatial hashing, the GPU offloaded code averages around slightly higher than 20000 microseconds per simulation step while the CPU code averages around 140000 microseconds per simulation step meaning that our code was around 7x faster than the original implementation. However, if spatial hashing is kept, the results drastically differ.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/gpu_spatial.png" align="middle" width="500px"/>
+        <figcaption align="middle">Average Rendering Time per Step Using GPU Offloaded Implementation With Spatial Hashing</figcaption>
+      </td>
+      <td>
+        <img src="images/cpu_spatial.png" align="middle" width="500px"/>
+        <figcaption align="middle">Average Rendering Time per Step Using Original Implementation With Spatial Hashing</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<p>As we can see from the above graphs, with spatial hashing implemented, the GPU offloaded implementation averages around 16000 microseconds while the CPU implementation averages around 10000-12000 microseconds showing that the GPU implementation is now actually slightly slower than the CPU implementation. This is likely due to the overhead of generating textures/buffers and populating buffers negating any advantage offered by parallel computation.</p>
+
+<p>Just to demonstrate that the GPU is being utilized by our code, below shows the GPU utilization of the machine when our implementation is being run.</p>
+
+<div align="center"><iframe src="https://drive.google.com/file/d/17-rwJ7UZmd3fEQnmOOTE4LiIoQjEkrxA/preview" width="640" height="480" allow="autoplay"></iframe></div>
+
+<p>As we can see, the GPU usage of the machine spikes up significantly to 80-90% utilization when compute shaders are being used. For reference, the original implementation of the code only utilizes around 15% of the GPU on the same machine when the simulation is being run.</p>
+
+
+<h2 align="middle">References</h2>
+
+<ul>
+  <li>https://web.engr.oregonstate.edu/~mjb/cs557/Handouts/compute.shader.1pp.pdf</li>
+  <li>https://medium.com/@daniel.coady/compute-shaders-in-opengl-4-3-d1c741998c03</li>
+  <li>Mihttps://www.khronos.org/registry/OpenGL-Refpages/gl4/html/indexflat.phplk</li>
+  <li>https://www.youtube.com/watch?v=nF4X9BIUzx0</li>
+</ul>
+
+<h2 align="middle">Team Member Contributions</h2>
+
+<ul>
+  <li>Jonathan Luo: Wrote code for the parts using 2D textures as storage buffers (computing total force acting on each mass, self collisions, collisions with primitives). Wrote code for parallelizing grid creation to serve as a proof of concept for working with compute shaders and create a starting point for the rest of the project to be built off of. </li>
+  <li>Jacob Hsiung: Wrote code for the implementation of Verlet integration to update the positions of point masses. Finding online resources to help implement SSBO. Help team members comprehend the pipeline of SSBO and its implementation. Creating slides for the technical portion of the presentation</li>
+  <li>William Chen aided with SSBO Implementation, mostly under the lead of Jacob and Jonathan. Provided online resources to help implementation of the final loops in the simulate function and helped create the presentation slides.</li>
+  <li>Zoltan Williamson helped implement the SSBO portion of the project, specifically the last loop in the simulate function. Conceptually, this was the loop that made sure point masses moved, but also stayed loosely attached to each other so the cloth didn’t tear apart.This work involved working closely with Jacob/William, since the main steps for creating/working with SSBOs and writing corresponding shader code were essentially the same, with slight variations for certain portions of the code (number of buffers, types of calculations in shader code, etc.). </li>
+</ul>
+
+<p>All team members worked together on creating the milestone, presentation, and final deliverable.</p>
+
+</body>
+</html>
